@@ -1,0 +1,41 @@
+                                                               *buffers.firvish*
+                                                                      *:Buffers*
+Like |:ls| but shows buffers in a normal Neovim buffer.
+When given, bang ! will act like |:ls!| and show all buffers.
+
+Requires firvish.nvim: https://github.com/willruggiano/firvish.nvim
+
+                                                                *buffers.config*
+The default configuration:
+  open: string (default: edit)
+    How to open the bufferlist. Accepts buffer opening commands like
+    |:edit|, |:vsplit|, |:pedit|, etc.
+
+  excluded_buftypes: table (default: { "quickfix" })
+    Buftypes to exclude from the bufferlist.
+
+  excluded_filetypes: table (default: { "firvish-buffers" })
+    Filetypes to exclude from the bufferlist.
+
+  keymaps: table
+    Keymappings to set in the bufferlist buffer.
+    See |buffers-firvish-keymaps|
+
+buffers.setup({opts})                                            *buffers.setup*
+    Setup buffers.firvish
+    Creates a user command, |:Buffers|, which can be used to open the bufferlist
+
+    Parameters: ~
+        {opts}  (table)
+
+
+                                                          *buffers.setup_buffer*
+buffers.setup_buffer({bufnr}, {show_all_buffers})
+    Setup the bufferlist buffer
+
+    Parameters: ~
+        {bufnr}             (number)   the buffer in which to show the bufferlist
+        {show_all_buffers}  (boolean)  do not filter the bufferlist, like |:ls!|
+
+
+vim:tw=78:ts=8:noet:ft=help:norl:
