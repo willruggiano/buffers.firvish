@@ -1,4 +1,4 @@
-local Buffer = require "firvish.lib.buffer"
+local Buffer = require "firvish.types.buffer"
 
 local sorted_pairs = require("firvish.lib.generators").sorted_pairs
 

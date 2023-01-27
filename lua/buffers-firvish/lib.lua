@@ -1,6 +1,6 @@
-local lines = require "firvish.lib.lines"
+local firvish = require "firvish.lib"
 
-local Buffer = require "firvish.lib.buffer"
+local Buffer = require "firvish.types.buffer"
 local BufferList = require "buffers-firvish.lib.bufferlist"
 
 local lib = {}
@@ -27,7 +27,7 @@ end
 ---Get the Buffer at the current cursor position
 ---@return Buffer
 lib.buffer_at_cursor = function()
-  local line = lines.get_cursor_line()
+  local line = firvish.get_cursor_line()
   return lib.buffer_at_line(line)
 end
 

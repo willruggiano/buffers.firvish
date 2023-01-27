@@ -1,4 +1,4 @@
-local Filter = require "firvish.lib.filter"
+local Filter = require "firvish.types.filter"
 
 local FilterAll = Filter:new(function()
   return true

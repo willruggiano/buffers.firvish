@@ -10,7 +10,7 @@
 local filters = require "buffers-firvish.lib.filters"
 local lib = require "buffers-firvish.lib"
 
-local Buffer = require "firvish.lib.buffer"
+local Buffer = require "firvish.types.buffer"
 local BufferList = require "buffers-firvish.lib.bufferlist"
 
 local buffers = {}
