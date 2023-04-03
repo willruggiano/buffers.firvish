@@ -2,6 +2,8 @@ local BufInfo = require "buffers-firvish.bufinfo"
 local Buffer = require "firvish.buffer2"
 local bufdelete = require "bufdelete"
 
+local namespace = vim.api.nvim_create_namespace "buffers-firvish"
+
 local function reconstruct(line)
   local match = string.match(line, "(%d+)")
   if match ~= nil then
@@ -89,8 +91,7 @@ local function filter(flags)
     end
   else
     return function(bufinfo)
-      -- TODO: Some sort of default, akin to :ls
-      return true
+      return bufinfo:listed()
     end
   end
 end
@@ -107,11 +108,26 @@ end
 ---@param dict {string: boolean}?
 local function set_lines(buffer, flags, dict)
   local lines = {}
+  local extmarks = {}
   for _, bufinfo in ipairs(list_bufs(flags, dict)) do
     table.insert(lines, bufinfo:repr())
+    local virt_text = bufinfo:virt_text()
+    if virt_text then
+      table.insert(extmarks, {
+        ns_id = namespace,
+        line = #lines - 1,
+        col = -1,
+        opts = {
+          virt_text = {
+            virt_text,
+          },
+          virt_text_pos = "right_align",
+        },
+      })
+    end
   end
 
-  buffer:set_lines(lines)
+  buffer:set_lines(lines, {}, extmarks)
   buffer.opt.modified = false
 end
 
@@ -152,13 +168,6 @@ function Extension.new()
           vim.cmd.buffer(buffer.bufnr)
         end,
         desc = "Open the buffer under the cursor",
-      },
-      ["K"] = {
-        callback = function()
-          local buffer = buffer_at_cursor()
-          print(buffer.bufnr, buffer.opt.modified and "+" or " ", buffer:name())
-        end,
-        desc = "Show buffer meta information",
       },
     },
   }

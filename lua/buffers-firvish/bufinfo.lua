@@ -111,7 +111,7 @@ function BufInfo:p3()
     -- a hidden buffer: it is loaded, but currently not displayed in a window |hidden-buffer|
     return "h"
   end
-  return s(1)
+  return s(0)
 end
 
 function BufInfo:p4()
@@ -132,7 +132,7 @@ function BufInfo:p4()
       return "?"
     end
   end
-  return s(0)
+  return s(1)
 end
 
 function BufInfo:p5()
@@ -142,19 +142,24 @@ function BufInfo:p5()
     -- a buffer with read errors
     return "x"
   end
-  return s(1)
+  return s(0)
 end
 
 function BufInfo:p6()
-  return self.bufinfo.name
+  local name = self.bufinfo.name
+  if name == "" then
+    return [["[No Name]"]]
+  else
+    return string.format([["%s"]], name)
+  end
 end
 
-function BufInfo:p7()
+function BufInfo:virt_text()
   local lnum = self:lnum()
   if lnum then
-    return "line " .. lnum
+    return { "(line " .. lnum .. ")", "Comment" }
   end
-  return s(0)
+  return false
 end
 
 function BufInfo:repr()
@@ -168,8 +173,6 @@ function BufInfo:repr()
     "%s", -- p5
     s(1),
     "%s", -- p6
-    s(3),
-    "%s", -- p7
   }
 
   -- stylua: ignore start
@@ -181,8 +184,7 @@ function BufInfo:repr()
     self:p3(),
     self:p4(),
     self:p5(),
-    self:p6(),
-    self:p7()
+    self:p6()
   )
   -- stylua: ignore end
 end
