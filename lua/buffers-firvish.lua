@@ -1,158 +1,207 @@
----@tag buffers.firvish
----@tag :Buffers
----@brief [[
----Like |:ls| but shows buffers in a normal Neovim buffer.
----When given, bang ! will act like |:ls!| and show all buffers.
----
----Requires firvish.nvim: https://github.com/willruggiano/firvish.nvim
----@brief ]]
+local BufInfo = require "buffers-firvish.bufinfo"
+local Buffer = require "firvish.buffer2"
+local bufdelete = require "bufdelete"
 
-local filters = require "buffers-firvish.lib.filters"
-local lib = require "buffers-firvish.lib"
-
-local Buffer = require "firvish.types.buffer"
-local BufferList = require "buffers-firvish.lib.bufferlist"
-
-local buffers = {}
-
----@tag buffers.config
----@brief [[
----The default configuration:
----  open: string (default: edit)
----    How to open the bufferlist. Accepts buffer opening commands like
----    |:edit|, |:vsplit|, |:pedit|, etc.
----
----  excluded_buftypes: table (default: { "quickfix" })
----    Buftypes to exclude from the bufferlist.
----
----  excluded_filetypes: table (default: { "firvish-buffers" })
----    Filetypes to exclude from the bufferlist.
----
----  keymaps: table
----    Keymappings to set in the bufferlist buffer.
----    See |buffers-firvish-keymaps|
----@brief ]]
-buffers.config = {
-  open = "edit",
-  excluded_buftypes = { "quickfix" },
-  excluded_filetypes = { "firvish-buffers" },
-  keymaps = {
-    n = {
-      ["-"] = {
-        callback = function()
-          vim.cmd.bwipeout()
-        end,
-        desc = "Close the bufferlist",
-      },
-      ["<CR>"] = {
-        callback = function()
-          lib.open_buffer "edit"
-        end,
-        desc = "Open buffer under cursor",
-      },
-      ["<C-s>"] = {
-        callback = function()
-          lib.open_buffer "split"
-        end,
-        desc = ":split buffer under cursor",
-      },
-      ["<C-v>"] = {
-        callback = function()
-          lib.open_buffer "vsplit"
-        end,
-        desc = ":vsplit buffer under cursor",
-      },
-    },
-  },
-}
-
-buffers.filename = "firvish://buffers"
-
-buffers.lib = lib
-
----Setup buffers.firvish
----Creates a user command, |:Buffers|, which can be used to open the bufferlist
----@param opts table
-function buffers.setup(opts)
-  buffers.config = vim.tbl_deep_extend("force", buffers.config, opts)
-
-  vim.filetype.add {
-    filename = {
-      [buffers.filename] = "firvish-buffers",
-    },
-  }
-
-  vim.api.nvim_create_user_command("Buffers", function(args)
-    vim.cmd(buffers.config.open .. " " .. buffers.filename)
-    buffers.setup_buffer(vim.api.nvim_get_current_buf(), args.bang)
-  end, {
-    bang = true,
-    desc = "Open the buffer list",
-  })
+local function reconstruct(line)
+  local match = string.match(line, "(%d+)")
+  if match ~= nil then
+    return tonumber(match)
+  else
+    error("Failed to parse line: " .. line .. "")
+  end
 end
 
----Setup the bufferlist buffer
----@param bufnr number the buffer in which to show the bufferlist
----@param show_all_buffers boolean do not filter the bufferlist, like |:ls!|
-buffers.setup_buffer = function(bufnr, show_all_buffers)
-  local buffer = Buffer:new(bufnr)
-  buffer:set_options {
-    bufhidden = "wipe",
-    buflisted = false,
-    buftype = "acwrite",
-    swapfile = false,
-  }
+local function buffer_from_line(line)
+  local bufnr = reconstruct(line)
+  return Buffer.from(bufnr)
+end
 
-  local config = buffers.config
-  local default_opts = { buffer = bufnr, noremap = true, silent = true }
-  for mode, mappings in pairs(config.keymaps) do
-    for lhs, opts in pairs(mappings) do
-      if opts then
-        vim.keymap.set(mode, lhs, opts.callback, vim.tbl_extend("force", default_opts, opts))
+local function reconstruct_from_buffer(buffer)
+  local buffers = {}
+  for _, line in ipairs(buffer:get_lines()) do
+    table.insert(buffers, buffer_from_line(line))
+  end
+  return buffers
+end
+
+local function buffer_at_cursor()
+  local line = require("firvish.lib").get_cursor_line()
+  vim.pretty_print(line)
+  return buffer_from_line(line)
+end
+
+-- stylua: ignore start
+local flag_values = {
+  ["%+"] = function(bufinfo)
+    return bufinfo:modified()
+  end,
+  ["-"] = function(bufinfo)
+    return bufinfo:modifidable() == false
+  end,
+  ["="] = function(bufinfo)
+    return bufinfo:readonly()
+  end,
+  ["a"] = function(bufinfo)
+    return bufinfo:active()
+  end,
+  ["u"] = function(bufinfo)
+    return bufinfo:listed() == false
+  end,
+  ["h"] = function(bufinfo)
+    return bufinfo:hidden()
+  end,
+  ["x"] = function(bufinfo)
+    return bufinfo:read_errors()
+  end,
+  ["%%"] = function(bufinfo)
+    return bufinfo:current()
+  end,
+  ["#"] = function(bufinfo)
+    return bufinfo:alternate()
+  end,
+  ["R"] = function(bufinfo)
+    -- TODO: implement terminal buffer handling
+    return false
+  end,
+  ["F"] = function(bufinfo)
+    -- TODO: implement terminal buffer handling
+    return false
+  end,
+  ["t"] = function(bufinfo)
+    -- TODO: implement last used/sorting
+    return false
+  end,
+}
+-- stylua: ignore end
+
+---@param flags string?
+local function filter(flags)
+  if flags then
+    return function(bufinfo)
+      for pattern, fn in pairs(flag_values) do
+        if string.match(flags, pattern) then
+          if fn(bufinfo) == false then
+            return false
+          end
+        end
       end
+      return true
+    end
+  else
+    return function(bufinfo)
+      -- TODO: Some sort of default, akin to :ls
+      return true
     end
   end
-
-  local filter
-  if show_all_buffers then
-    filter = filters.all
-  else
-    filter = filters.listed - filters.buftype(config.excluded_buftypes) - filters.filetype(config.excluded_filetypes)
-  end
-  lib.refresh(filter, buffer)
-
-  vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
-    buffer = bufnr,
-    callback = function()
-      lib.refresh(filter, buffer)
-    end,
-  })
-
-  vim.api.nvim_create_autocmd("BufWriteCmd", {
-    buffer = bufnr,
-    callback = function()
-      local lines = buffer:get_lines()
-      local current = BufferList:new(true, filter)
-      local desired = BufferList.parse(lines)
-      ---@type BufferList
-      ---@diagnostic disable-next-line: assign-type-mismatch
-      local bufferlist = current / desired
-      for _, buf in bufferlist:iter() do
-        if buf:visible() then
-          vim.cmd.close { count = vim.fn.bufwinnr(buf.bufnr) }
-        end
-        vim.cmd.bwipeout(buf.bufnr)
-      end
-      buffer:set_option("modified", false)
-    end,
-  })
-
-  vim.api.nvim_create_autocmd("BufWritePost", {
-    buffer = bufnr,
-    callback = function()
-      lib.refresh(filter, buffer)
-    end,
-  })
 end
 
-return buffers
+---@param flags string?
+---@param dict {string: boolean}?
+local function list_bufs(flags, dict)
+  local infos = vim.tbl_map(BufInfo.new, dict and vim.fn.getbufinfo(dict) or vim.fn.getbufinfo())
+  return vim.tbl_filter(filter(flags), infos)
+end
+
+---@param buffer Buffer
+---@param flags string?
+---@param dict {string: boolean}?
+local function set_lines(buffer, flags, dict)
+  local lines = {}
+  for _, bufinfo in ipairs(list_bufs(flags, dict)) do
+    table.insert(lines, bufinfo:repr())
+  end
+
+  buffer:set_lines(lines)
+  buffer.opt.modified = false
+end
+
+local function make_lookup_table(buffers)
+  local t = {}
+  for _, buffer in ipairs(buffers) do
+    t[tostring(buffer.bufnr)] = buffer
+  end
+  return t
+end
+
+---@param original BufInfo[]
+---@param target Buffer[]
+local function compute_difference(original, target)
+  local lookup = make_lookup_table(target)
+  local diff = {}
+  for _, bufinfo in ipairs(original) do
+    if lookup[tostring(bufinfo:bufnr())] == nil then
+      table.insert(diff, bufinfo:bufnr())
+    end
+  end
+  return diff
+end
+
+local Extension = {}
+Extension.__index = Extension
+
+Extension.bufname = "firvish://buffers"
+
+function Extension.new()
+  local obj = {}
+
+  obj.keymaps = {
+    n = {
+      ["<CR>"] = {
+        callback = function()
+          local buffer = buffer_at_cursor()
+          vim.cmd.buffer(buffer.bufnr)
+        end,
+        desc = "Open the buffer under the cursor",
+      },
+      ["K"] = {
+        callback = function()
+          local buffer = buffer_at_cursor()
+          print(buffer.bufnr, buffer.opt.modified and "+" or " ", buffer:name())
+        end,
+        desc = "Show buffer meta information",
+      },
+    },
+  }
+  obj.options = {
+    bufhidden = "hide",
+  }
+
+  return setmetatable(obj, Extension)
+end
+
+function Extension:on_buf_enter(buffer)
+  set_lines(buffer)
+end
+
+function Extension:on_buf_write_cmd(buffer)
+  -- TODO: state.flags, state.dict?
+  local current = list_bufs()
+  local desired = reconstruct_from_buffer(buffer)
+  local diff = compute_difference(current, desired)
+  for _, bufnr in ipairs(diff) do
+    bufdelete.bufwipeout(bufnr, vim.v.cmdbang)
+  end
+  buffer.opt.modified = false
+end
+
+function Extension:on_buf_write_post(buffer)
+  set_lines(buffer)
+end
+
+---@class ExtensionUpdateOpts
+---@field buffer Buffer
+---@field flags string?
+---@field dict {string: boolean}?
+
+---@param opts ExtensionUpdateOpts
+function Extension:update(opts)
+  set_lines(opts.buffer, opts.flags, opts.dict)
+end
+
+local M = {}
+
+function M.setup()
+  require("firvish").register_extension("buffers", Extension.new())
+end
+
+return M

@@ -1,4 +1,4 @@
-local Filter = require "firvish.types.filter"
+local Filter = require "firvish.filter"
 
 local FilterAll = Filter:new(function()
   return true
@@ -6,12 +6,12 @@ end)
 
 ---@param buffer Buffer
 local FilterListed = Filter:new(function(buffer)
-  return buffer:listed()
+  return buffer.opt.buflisted == true
 end)
 
 ---@param buffer Buffer
 local FilterModified = Filter:new(function(buffer)
-  return buffer:modified()
+  return buffer.opt.modified == true
 end)
 
 ---@return Filter
@@ -19,9 +19,9 @@ local function FilterBuftype(buftypes)
   ---@param buffer Buffer
   return Filter:new(function(buffer)
     if type(buftypes) == "string" then
-      return buffer:get_option "buftype" == buftypes
+      return buffer.opt.buftype == buftypes
     else
-      return vim.tbl_contains(buftypes, buffer:get_option "buftype")
+      return vim.tbl_contains(buftypes, buffer.opt.buftype)
     end
   end)
 end
@@ -31,9 +31,9 @@ local function FilterFiletype(filetypes)
   ---@param buffer Buffer
   return Filter:new(function(buffer)
     if type(filetypes) == "string" then
-      return buffer:filetype() == filetypes
+      return buffer.opt.filetype == filetypes
     else
-      return vim.tbl_contains(filetypes, buffer:filetype())
+      return vim.tbl_contains(filetypes, buffer.opt.filetype)
     end
   end)
 end
