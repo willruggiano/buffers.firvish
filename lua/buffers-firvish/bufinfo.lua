@@ -41,22 +41,31 @@ function BufInfo:listed()
   return self.bufinfo.listed == 1
 end
 
+function BufInfo:named()
+  return self.bufinfo.name ~= ""
+end
+
 function BufInfo:name()
-  local name = self.bufinfo.name
-  if name == "" then
-    return [["[No Name]"]]
+  if self:named() then
+    return string.format([["%s"]], self.bufinfo.name)
   else
-    return string.format([["%s"]], name)
+    return [["[No Name]"]]
   end
 end
 
 function BufInfo:alternate()
   local alternate_file = vim.fn.expand "#"
-  if string.match(self:name(), alternate_file) then
+  -- stylua: ignore start
+  if
+    string.match(self.bufinfo.name, alternate_file)
+  or
+    self.bufinfo.name == alternate_file
+  then
     return true
   else
     return false
   end
+  --stylua: ignore end
 end
 
 function BufInfo:current()
@@ -70,7 +79,7 @@ function BufInfo:current()
 end
 
 function BufInfo:read_errors()
-  -- TODO: implement read errors
+  -- TODO: need to look at source code for this one :/
   return false
 end
 
@@ -85,9 +94,42 @@ function BufInfo:lnum()
   end
 end
 
-function BufInfo:terminal()
-  -- TODO: implement terminal buffer handling
+function BufInfo:last_used()
+  return self.bufinfo.lastused
+end
+
+function BufInfo:last_used_date()
+  return os.date("%c", self:last_used())
+end
+
+function BufInfo:channel()
+  return vim.api.nvim_buf_get_option(self:bufnr(), "channel")
+end
+
+local TermInfo = {}
+TermInfo.__index = TermInfo
+
+function TermInfo.new(bufnr, channel)
+  return setmetatable({ bufnr = bufnr, channel = channel }, TermInfo)
+end
+
+function TermInfo:running()
+  -- TODO: This doesn't seem correct
+  return vim.fn.jobpid(self.channel) ~= 0
+end
+
+function TermInfo:finished()
+  -- TODO: Not sure how to get this one
   return false
+end
+
+function BufInfo:terminal()
+  local channel = self:channel()
+  if channel ~= 0 then
+    return TermInfo.new(self:bufnr(), channel)
+  else
+    return false
+  end
 end
 
 function BufInfo:p0()
@@ -128,12 +170,8 @@ function BufInfo:p3()
 end
 
 function BufInfo:p4()
-  if self:modifiable() == false then
-    return "-"
-  elseif self:readonly() then
-    return "="
-  elseif self:terminal() then
-    local term = self:terminal()
+  local term = self:terminal()
+  if term then
     if term:running() then
       -- a terminal buffer with a running job
       return "R"
@@ -144,6 +182,10 @@ function BufInfo:p4()
       -- a terminal buffer without a job: `:terminal NONE`
       return "?"
     end
+  elseif self:modifiable() == false then
+    return "-"
+  elseif self:readonly() then
+    return "="
   end
   return s(1)
 end
@@ -155,19 +197,23 @@ function BufInfo:p5()
     -- a buffer with read errors
     return "x"
   end
-  return s(0)
+  return s(1)
 end
 
 function BufInfo:p6()
   return self:name()
 end
 
-function BufInfo:virt_text()
+function BufInfo:virt_text(opts)
+  local text = {}
+  if opts.last_used then
+    table.insert(text, "last used: " .. self:last_used_date())
+  end
   local lnum = self:lnum()
   if lnum then
-    return { "(line " .. lnum .. ")", "Comment" }
+    table.insert(text, 1, "line " .. lnum)
   end
-  return false
+  return { "(" .. table.concat(text, "; ") .. ")", "Comment" }
 end
 
 function BufInfo:repr()
@@ -177,7 +223,6 @@ function BufInfo:repr()
     "%s", -- p2
     "%s", -- p3
     "%s", -- p4
-    s(1),
     "%s", -- p5
     s(1),
     "%s", -- p6

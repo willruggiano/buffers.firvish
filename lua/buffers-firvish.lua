@@ -28,7 +28,6 @@ end
 
 local function buffer_at_cursor()
   local line = require("firvish.lib").get_cursor_line()
-  vim.pretty_print(line)
   return buffer_from_line(line)
 end
 
@@ -46,11 +45,17 @@ local flag_values = {
   ["a"] = function(bufinfo)
     return bufinfo:active()
   end,
-  ["u"] = function(bufinfo)
-    return bufinfo:listed() == false
-  end,
   ["h"] = function(bufinfo)
     return bufinfo:hidden()
+  end,
+  ["l"] = function(bufinfo)
+    return bufinfo:listed()
+  end,
+  ["n"] = function(bufinfo)
+    return bufinfo:named()
+  end,
+  ["u"] = function(bufinfo)
+    return bufinfo:listed() == false
   end,
   ["x"] = function(bufinfo)
     return bufinfo:read_errors()
@@ -62,16 +67,15 @@ local flag_values = {
     return bufinfo:alternate()
   end,
   ["R"] = function(bufinfo)
-    -- TODO: implement terminal buffer handling
-    return false
+    local term = bufinfo:terminal()
+    return term and term:running() or false
   end,
   ["F"] = function(bufinfo)
-    -- TODO: implement terminal buffer handling
-    return false
+    local term = bufinfo:terminal()
+    return term and term:finished() or false
   end,
   ["t"] = function(bufinfo)
-    -- TODO: implement last used/sorting
-    return false
+    return bufinfo:last_used() ~= 0
   end,
 }
 -- stylua: ignore end
@@ -91,27 +95,41 @@ local function filter(flags)
     end
   else
     return function(bufinfo)
-      return bufinfo:listed()
+      return bufinfo:listed() and bufinfo:named()
     end
   end
+end
+
+local function maybe_sort(infos, flags)
+  if flags and string.match(flags, "t") then
+    table.sort(infos, function(b0, b1)
+      -- N.B. b0 will rise to the top if greater than b1
+      return b0:last_used() > b1:last_used()
+    end)
+  end
+  return infos
 end
 
 ---@param flags string?
 ---@param dict {string: boolean}?
 local function list_bufs(flags, dict)
   local infos = vim.tbl_map(BufInfo.new, dict and vim.fn.getbufinfo(dict) or vim.fn.getbufinfo())
-  return vim.tbl_filter(filter(flags), infos)
+  return maybe_sort(vim.tbl_filter(filter(flags), infos), flags)
 end
 
 ---@param buffer Buffer
 ---@param flags string?
 ---@param dict {string: boolean}?
 local function set_lines(buffer, flags, dict)
+  vim.api.nvim_buf_clear_namespace(buffer.bufnr, namespace, 0, -1)
+
   local lines = {}
   local extmarks = {}
   for _, bufinfo in ipairs(list_bufs(flags, dict)) do
     table.insert(lines, bufinfo:repr())
-    local virt_text = bufinfo:virt_text()
+    local virt_text = bufinfo:virt_text {
+      last_used = flags and string.match(flags, "t") and true or false,
+    }
     if virt_text then
       table.insert(extmarks, {
         ns_id = namespace,
@@ -173,6 +191,7 @@ function Extension.new()
   }
   obj.options = {
     bufhidden = "hide",
+    filetype = "firvish",
   }
 
   return setmetatable(obj, Extension)
