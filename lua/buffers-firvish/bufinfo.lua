@@ -41,9 +41,22 @@ function BufInfo:listed()
   return self.bufinfo.listed == 1
 end
 
+function BufInfo:name()
+  local name = self.bufinfo.name
+  if name == "" then
+    return [["[No Name]"]]
+  else
+    return string.format([["%s"]], name)
+  end
+end
+
 function BufInfo:alternate()
-  -- TODO: implement alternate buffers
-  return false
+  local alternate_file = vim.fn.expand "#"
+  if string.match(self:name(), alternate_file) then
+    return true
+  else
+    return false
+  end
 end
 
 function BufInfo:current()
@@ -146,12 +159,7 @@ function BufInfo:p5()
 end
 
 function BufInfo:p6()
-  local name = self.bufinfo.name
-  if name == "" then
-    return [["[No Name]"]]
-  else
-    return string.format([["%s"]], name)
-  end
+  return self:name()
 end
 
 function BufInfo:virt_text()
