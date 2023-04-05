@@ -18,11 +18,11 @@
         system,
         ...
       }: {
-        apps.update-docs.program = pkgs.writeShellApplication {
-          name = "update-docs";
+        apps.generate-vimdoc.program = pkgs.writeShellApplication {
+          name = "generate-vimdoc";
           runtimeInputs = with pkgs; [lemmy-help];
           text = ''
-            lemmy-help lua/buffers-firvish.lua > doc/buffers-firvish.txt
+            lemmy-help -c lua/buffers-firvish.lua > doc/buffers-firvish.txt
           '';
         };
 
