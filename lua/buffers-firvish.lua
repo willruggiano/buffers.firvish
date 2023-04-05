@@ -60,7 +60,7 @@ local function reconstruct(line)
   if match ~= nil then
     return tonumber(match)
   else
-    error("Failed to parse line: " .. line .. "")
+    error("Failed to parse line: '" .. line .. "'")
   end
 end
 
@@ -128,7 +128,6 @@ local flag_values = {
 }
 -- stylua: ignore end
 
----@return fun(_: BufInfo): boolean
 local function make_filter_fn(flags, invert)
   local filter = Filter.new(function()
     return true
@@ -137,14 +136,15 @@ local function make_filter_fn(flags, invert)
   for pattern, fn in pairs(flag_values) do
     if string.match(flags, pattern) then
       if invert then
+        ---@diagnostic disable-next-line: cast-local-type
         filter = filter - fn
       else
+        ---@diagnostic disable-next-line: cast-local-type
         filter = filter + fn
       end
     end
   end
 
-  ---@diagnostic disable-next-line: return-type-mismatch
   return filter
 end
 
@@ -178,6 +178,7 @@ end
 ---@param invert boolean?
 local function list_bufs(flags, invert)
   local infos = vim.tbl_map(BufInfo.new, vim.fn.getbufinfo())
+  ---@diagnostic disable-next-line: param-type-mismatch
   return maybe_sort(vim.tbl_filter(filter(flags, invert), infos), flags)
 end
 
@@ -214,11 +215,11 @@ local function set_lines(buffer, flags, invert)
 end
 
 local function make_lookup_table(buffers)
-  local t = {}
+  local lookup = {}
   for _, buffer in ipairs(buffers) do
-    t[tostring(buffer.bufnr)] = buffer
+    lookup[tostring(buffer.bufnr)] = buffer
   end
-  return t
+  return lookup
 end
 
 ---@param original BufInfo[]
@@ -234,11 +235,14 @@ local function compute_difference(original, target)
   return diff
 end
 
+---@package
 local Extension = {}
 Extension.__index = Extension
 
+---@package
 Extension.bufname = "firvish://buffers"
 
+---@package
 function Extension.new()
   local obj = {}
 
@@ -261,10 +265,12 @@ function Extension.new()
   return setmetatable(obj, Extension)
 end
 
+---@package
 function Extension:on_buf_enter(buffer)
   set_lines(buffer)
 end
 
+---@package
 function Extension:on_buf_write_cmd(buffer)
   -- TODO: state.flags, state.dict?
   local current = list_bufs()
@@ -276,22 +282,17 @@ function Extension:on_buf_write_cmd(buffer)
   buffer.opt.modified = false
 end
 
+---@package
 function Extension:on_buf_write_post(buffer)
   set_lines(buffer)
 end
 
----@private
----@class ExtensionUpdateOpts
----@field buffer Buffer
----@field flags string?
----@field invert boolean?
-
----@param opts ExtensionUpdateOpts
-function Extension:update(opts)
-  set_lines(opts.buffer, opts.flags, opts.invert)
+---@package
+function Extension:update(buffer, args)
+  set_lines(buffer, args.fargs[2], args.bang)
 end
 
----@private
+---@package
 local M = {}
 
 ---@package
