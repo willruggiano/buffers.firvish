@@ -49,7 +49,6 @@
 ---@brief ]]
 
 local BufInfo = require "buffers-firvish.bufinfo"
-local Buffer = require "firvish.buffer2"
 local bufdelete = require "bufdelete"
 local Filter = require "firvish.filter"
 
@@ -64,22 +63,23 @@ local function reconstruct(line)
   end
 end
 
-local function buffer_from_line(line)
+local function bufinfo_from_line(line)
   local bufnr = reconstruct(line)
-  return Buffer.from(bufnr)
+  ---@diagnostic disable-next-line: param-type-mismatch
+  return BufInfo.new(vim.fn.getbufinfo(bufnr)[1])
 end
 
 local function reconstruct_from_buffer(buffer)
-  local buffers = {}
+  local bufinfos = {}
   for _, line in ipairs(buffer:get_lines()) do
-    table.insert(buffers, buffer_from_line(line))
+    table.insert(bufinfos, bufinfo_from_line(line))
   end
-  return buffers
+  return bufinfos
 end
 
-local function buffer_at_cursor()
+local function bufinfo_at_cursor()
   local line = require("firvish.lib").get_cursor_line()
-  return buffer_from_line(line)
+  return bufinfo_from_line(line)
 end
 
 -- stylua: ignore start
@@ -214,16 +214,16 @@ local function set_lines(buffer, flags, invert)
   buffer.opt.modified = false
 end
 
-local function make_lookup_table(buffers)
+local function make_lookup_table(bufinfos)
   local lookup = {}
-  for _, buffer in ipairs(buffers) do
-    lookup[tostring(buffer.bufnr)] = buffer
+  for _, bufinfo in ipairs(bufinfos) do
+    lookup[tostring(bufinfo:bufnr())] = bufinfo
   end
   return lookup
 end
 
 ---@param original BufInfo[]
----@param target Buffer[]
+---@param target BufInfo[]
 local function compute_difference(original, target)
   local lookup = make_lookup_table(target)
   local diff = {}
@@ -250,8 +250,8 @@ function Extension.new()
     n = {
       ["<CR>"] = {
         callback = function()
-          local buffer = buffer_at_cursor()
-          vim.cmd.buffer(buffer.bufnr)
+          local bufinfo = bufinfo_at_cursor()
+          vim.cmd.edit("#" .. bufinfo:bufnr())
         end,
         desc = "Open the buffer under the cursor",
       },
@@ -272,12 +272,11 @@ end
 
 ---@package
 function Extension:on_buf_write_cmd(buffer)
-  -- TODO: state.flags, state.dict?
-  local current = list_bufs()
+  local current = list_bufs(nil, true) -- N.B. List *all* buffers, even unlisted ones
   local desired = reconstruct_from_buffer(buffer)
   local diff = compute_difference(current, desired)
   for _, bufnr in ipairs(diff) do
-    bufdelete.bufwipeout(bufnr, vim.v.cmdbang)
+    bufdelete.bufwipeout(bufnr, vim.v.cmdbang == 1)
   end
   buffer.opt.modified = false
 end
