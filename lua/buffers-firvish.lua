@@ -51,6 +51,7 @@ local BufInfo = require "buffers-firvish.bufinfo"
 local bufdelete = require "bufdelete"
 local Filter = require "firvish.filter"
 
+local filename = "firvish://buffers"
 local namespace = vim.api.nvim_create_namespace "buffers-firvish"
 
 local function reconstruct(line)
@@ -153,13 +154,13 @@ local function filter(flags, invert)
   if flags then
     return make_filter_fn(flags, invert)
   else
-    return function(bufinfo)
+    return Filter.new(function(bufinfo)
       if invert then
         return true
       else
         return bufinfo:listed()
       end
-    end
+    end)
   end
 end
 
@@ -177,8 +178,16 @@ end
 ---@param invert boolean?
 local function list_bufs(flags, invert)
   local infos = vim.tbl_map(BufInfo.new, vim.fn.getbufinfo())
-  ---@diagnostic disable-next-line: param-type-mismatch
-  return maybe_sort(vim.tbl_filter(filter(flags, invert), infos), flags)
+  return maybe_sort(
+    vim.tbl_filter(
+      ---@diagnostic disable-next-line: param-type-mismatch
+      Filter.new(function(bufinfo)
+        return bufinfo.bufinfo.name ~= filename
+      end) + filter(flags, invert),
+      infos
+    ),
+    flags
+  )
 end
 
 ---@param buffer Buffer
@@ -239,7 +248,7 @@ local Extension = {}
 Extension.__index = Extension
 
 ---@package
-Extension.bufname = "firvish://buffers"
+Extension.bufname = filename
 
 ---@package
 function Extension.new()
