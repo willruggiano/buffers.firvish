@@ -2,8 +2,7 @@
 ---@brief [[
 ---Like |:ls| but implemented using firvish.nvim
 ---
----Usage:
----------
+---
 ---Setup:
 --->
 ---require("firvish").setup()
@@ -11,7 +10,7 @@
 ---<
 ---
 ---Invoke via |:Firvish|:
----------
+---
 --->
 ---:Firvish[!] buffers [flags]
 ---<
@@ -39,11 +38,11 @@
 ---`:Firvish! buffers a+` will list all inactive, unmodified buffers
 ---
 ---Invoke via `firvish.extensions`:
----------
+---
 --->
 ---require("firvish").extensions.buffers:open()
 ----- or, to pass arguments (e.g. flags)
----require("firvish.extensions.buffers"):run { ... }
+---require("firvish").extensions.buffers:run { ... }
 ---<
 ---
 ---@brief ]]
