@@ -296,8 +296,8 @@ end
 
 ---@package
 function Extension:execute(buffer, args)
-  buffer:open()
-  if args then
+  buffer:open(args.how)
+  if args.fargs then
     set_lines(buffer, args.fargs[2], args.bang)
   else
     set_lines(buffer)
