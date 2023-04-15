@@ -1,23 +1,17 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    pre-commit-nix.url = "github:cachix/pre-commit-hooks.nix";
+    devenv.url = "github:cachix/devenv";
   };
 
   outputs = {flake-parts, ...} @ inputs:
     flake-parts.lib.mkFlake {inherit inputs;} {
       imports = [
-        inputs.pre-commit-nix.flakeModule
+        inputs.devenv.flakeModule
       ];
 
       systems = ["x86_64-linux" "aarch64-darwin"];
-      perSystem = {
-        config,
-        pkgs,
-        system,
-        ...
-      }: {
+      perSystem = {pkgs, ...}: {
         apps.generate-vimdoc.program = pkgs.writeShellApplication {
           name = "generate-vimdoc";
           runtimeInputs = with pkgs; [lemmy-help];
@@ -26,21 +20,18 @@
           '';
         };
 
-        devShells.default = pkgs.mkShell {
+        devenv.shells.default = {
           name = "buffers.firvish";
-          buildInputs = with pkgs; [lemmy-help];
-          shellHook = ''
-            ${config.pre-commit.installationScript}
-          '';
+          packages = with pkgs; [lemmy-help luajit zk];
+          pre-commit.hooks = {
+            alejandra.enable = true;
+            stylua.enable = true;
+          };
         };
 
-        formatter = pkgs.alejandra;
-
-        pre-commit = {
-          settings = {
-            hooks.alejandra.enable = true;
-            hooks.stylua.enable = true;
-          };
+        packages.default = pkgs.vimUtils.buildVimPluginFrom2Nix {
+          name = "buffers.firvish";
+          src = ./.;
         };
       };
     };
