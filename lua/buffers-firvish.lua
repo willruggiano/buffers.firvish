@@ -267,7 +267,7 @@ function Extension.new()
   }
   obj.options = {
     bufhidden = "hide",
-    filetype = "firvish",
+    filetype = "firvish-buffers",
   }
 
   return setmetatable(obj, Extension)
