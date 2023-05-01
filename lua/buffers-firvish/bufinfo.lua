@@ -5,8 +5,8 @@ end
 local BufInfo = {}
 BufInfo.__index = BufInfo
 
-function BufInfo.new(info)
-  return setmetatable({ bufinfo = info }, BufInfo)
+function BufInfo.new(bufnr)
+  return setmetatable({ bufinfo = vim.fn.getbufinfo(bufnr)[1] }, BufInfo)
 end
 
 function BufInfo:bufnr()
