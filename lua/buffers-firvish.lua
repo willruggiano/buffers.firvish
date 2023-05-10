@@ -73,6 +73,7 @@ function M.setup()
   require("firvish").register_extension_t("buffers_t", Buffer, {
     buffer = {
       name = "[Firvish Buffers]",
+      open_cmd = "pedit",
       keymap = {
         n = {
           ["<CR>"] = {
